@@ -6,8 +6,12 @@ import io
 import openpyxl
 from datetime import datetime
 
-from .. import schemas, database, models, auth
-from ..ai import face_recognition, liveness
+try:
+    from .. import schemas, database, models, auth
+    from ..ai import face_engine, liveness
+except (ImportError, ValueError):
+    import schemas, database, models, auth
+    from ai import face_engine, liveness
 
 router = APIRouter(prefix="/api/attendance", tags=["attendance"])
 
@@ -45,7 +49,7 @@ async def check_in(
         raise HTTPException(status_code=401, detail="Liveness check failed. Spoof detected.")
 
     # 2. Face Recognition Match
-    match_result = face_recognition.compare_faces(current_user.face_encoding, contents)
+    match_result = face_engine.compare_faces(current_user.face_encoding, contents)
     
     if "error" in match_result:
         raise HTTPException(status_code=400, detail=match_result["error"])

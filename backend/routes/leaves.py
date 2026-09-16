@@ -6,7 +6,10 @@ import io
 import openpyxl
 from datetime import datetime
 
-from .. import schemas, database, models, auth
+try:
+    from .. import schemas, database, models, auth
+except (ImportError, ValueError):
+    import schemas, database, models, auth
 
 router = APIRouter(prefix="/api/leaves", tags=["leaves"])
 

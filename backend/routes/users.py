@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
-from .. import schemas, database, models, auth
-from ..ai import face_recognition
+try:
+    from .. import schemas, database, models, auth
+    from ..ai import face_engine
+except (ImportError, ValueError):
+    import schemas, database, models, auth
+    from ai import face_engine
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -35,7 +39,7 @@ async def register_face(
     Register a face for the currently logged in user.
     """
     contents = await file.read()
-    encoding_json = face_recognition.get_face_encoding(contents)
+    encoding_json = face_engine.get_face_encoding(contents)
     
     if not encoding_json:
         raise HTTPException(status_code=400, detail="Could not detect exactly one face in the image.")
