@@ -14,8 +14,8 @@ WORKDIR /app
 # Restrict cmake to single core to avoid high RAM spikes
 ENV CMAKE_BUILD_PARALLEL_LEVEL=1
 
-# Install pre-compiled dlib wheel directly to avoid heavy in-memory source compilation
-RUN pip install --no-cache-dir dlib-bin
+# Install pre-compiled dlib wheel and validator directly
+RUN pip install --no-cache-dir dlib-bin email-validator
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

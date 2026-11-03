@@ -3,12 +3,6 @@ from typing import Optional, Any
 from datetime import datetime
 
 try:
-    import email_validator
-    from pydantic import EmailStr
-except ImportError:
-    EmailStr = str
-
-try:
     from pydantic import ConfigDict
     HAS_PYDANTIC_V2 = True
 except ImportError:
@@ -28,7 +22,7 @@ else:
 
 class UserBase(CompatibleBaseModel):
     username: str
-    email: EmailStr
+    email: str
     role: str = "employee"
 
 class UserCreate(UserBase):
