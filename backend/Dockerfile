@@ -1,6 +1,6 @@
 FROM python:3.10-slim-bookworm
 
-# Install system dependencies for face_recognition, dlib, and opencv
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -10,6 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# Restrict cmake to single core to avoid high RAM spikes
+ENV CMAKE_BUILD_PARALLEL_LEVEL=1
+
+# Install pre-compiled dlib wheel directly to avoid heavy in-memory source compilation
+RUN pip install --no-cache-dir dlib-bin
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

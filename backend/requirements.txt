@@ -8,6 +8,7 @@ passlib[bcrypt]
 bcrypt
 python-multipart
 openpyxl
+dlib-bin
 face-recognition
 opencv-python-headless
 numpy
