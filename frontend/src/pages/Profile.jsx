@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
-import { UserCircle, Briefcase, Building } from 'lucide-react';
+import { UserCircle, Briefcase, Building, ScanFace, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
   const [department, setDepartment] = useState('');
   const [designation, setDesignation] = useState('');
   const [saving, setSaving] = useState(false);
+  const [removingFace, setRemovingFace] = useState(false);
 
   const fetchUser = useCallback(async () => {
     try {
@@ -41,6 +43,22 @@ export default function Profile() {
     }
   };
 
+  const handleRemoveFace = async () => {
+    if (!window.confirm("Are you sure you want to remove your registered face? You will need to re-enroll to mark live attendance.")) {
+      return;
+    }
+    setRemovingFace(true);
+    try {
+      await api.delete('/users/me/face');
+      toast.success('Registered face removed successfully!');
+      fetchUser();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to remove face');
+    } finally {
+      setRemovingFace(false);
+    }
+  };
+
   if (!user) return <div className="p-6">Loading profile...</div>;
 
   return (
@@ -61,6 +79,74 @@ export default function Profile() {
           }}>
             {user.role}
           </span>
+        </div>
+      </div>
+
+      {/* Face Biometrics Card */}
+      <div className="glass-panel p-6">
+        <h3 className="text-xl font-bold mb-3 flex items-center gap-2">
+          <ScanFace size={20} color="var(--accent-color)" /> Face Biometrics
+        </h3>
+        <p className="text-secondary mb-4" style={{ fontSize: '0.9rem' }}>
+          Your facial recognition data is used for automatic webcam attendance.
+        </p>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          padding: '1rem',
+          borderRadius: '8px',
+          backgroundColor: user.has_face_encoding ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+          border: `1px solid ${user.has_face_encoding ? 'var(--success)' : '#fbbf24'}`
+        }}>
+          <div className="flex items-center gap-3">
+            {user.has_face_encoding ? (
+              <CheckCircle2 size={24} color="var(--success)" />
+            ) : (
+              <AlertCircle size={24} color="#fbbf24" />
+            )}
+            <div>
+              <div style={{ fontWeight: 'bold', color: user.has_face_encoding ? 'var(--success)' : '#fbbf24' }}>
+                {user.has_face_encoding ? 'Face Enrolled' : 'Not Enrolled'}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                {user.has_face_encoding ? '128D mathematical face embeddings active' : 'Enroll face to enable live webcam attendance'}
+              </div>
+            </div>
+          </div>
+          {user.has_face_encoding ? (
+            <button
+              type="button"
+              onClick={handleRemoveFace}
+              disabled={removingFace}
+              style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                color: 'var(--error)',
+                border: '1px solid var(--error)',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Trash2 size={16} />
+              {removingFace ? 'Removing...' : 'Remove Face'}
+            </button>
+          ) : (
+            <Link
+              to="/register-face"
+              className="btn btn-primary"
+              style={{ padding: '6px 14px', fontSize: '0.85rem', textDecoration: 'none' }}
+            >
+              Enroll Face Now
+            </Link>
+          )}
         </div>
       </div>
 

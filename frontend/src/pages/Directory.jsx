@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
-import { Users, Trash2, Building, Briefcase, ShieldAlert } from 'lucide-react';
+import { Users, Trash2, Building, Briefcase, ShieldAlert, RefreshCw } from 'lucide-react';
 
 export default function Directory() {
   const [users, setUsers] = useState([]);
@@ -41,6 +41,18 @@ export default function Directory() {
     }
   };
 
+  const handleResetFace = async (id, username) => {
+    if (window.confirm(`Are you sure you want to reset the registered face for ${username}?`)) {
+      try {
+        await api.delete(`/users/${id}/face`);
+        setUsers(prev => prev.map(u => u.id === id ? { ...u, has_face_encoding: false } : u));
+        toast.success(`Face data for ${username} reset successfully!`);
+      } catch (err) {
+        toast.error(err.response?.data?.detail || 'Failed to reset face data');
+      }
+    }
+  };
+
   if (loading) return <div className="p-6">Loading directory...</div>;
 
   if (forbidden) {
@@ -67,6 +79,7 @@ export default function Directory() {
               <th style={{ padding: '1rem' }}>Role</th>
               <th style={{ padding: '1rem' }}>Department</th>
               <th style={{ padding: '1rem' }}>Designation</th>
+              <th style={{ padding: '1rem' }}>Face Biometrics</th>
               <th style={{ padding: '1rem', textAlign: 'center' }}>Action</th>
             </tr>
           </thead>
@@ -103,22 +116,45 @@ export default function Directory() {
                     {u.designation || '—'}
                   </div>
                 </td>
+                <td style={{ padding: '1rem' }}>
+                  <span style={{ 
+                    padding: '4px 10px', 
+                    borderRadius: '12px', 
+                    fontSize: '0.75rem',
+                    backgroundColor: u.has_face_encoding ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                    color: u.has_face_encoding ? 'var(--success)' : '#fbbf24',
+                    fontWeight: 'bold'
+                  }}>
+                    {u.has_face_encoding ? 'Enrolled' : 'Pending'}
+                  </span>
+                </td>
                 <td style={{ padding: '1rem', textAlign: 'center' }}>
-                  {u.role !== 'admin' && (
-                    <button 
-                      onClick={() => handleDelete(u.id)}
-                      style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px' }}
-                      title="Delete User"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  )}
+                  <div className="flex items-center justify-center gap-2">
+                    {u.has_face_encoding && (
+                      <button 
+                        onClick={() => handleResetFace(u.id, u.username)}
+                        style={{ background: 'none', border: 'none', color: '#fbbf24', cursor: 'pointer', padding: '4px' }}
+                        title="Reset Registered Face"
+                      >
+                        <RefreshCw size={18} />
+                      </button>
+                    )}
+                    {u.role !== 'admin' && (
+                      <button 
+                        onClick={() => handleDelete(u.id)}
+                        style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '4px' }}
+                        title="Delete User"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
             {users.length === 0 && (
               <tr>
-                <td colSpan="6" className="text-center" style={{ padding: '2rem', color: 'var(--text-secondary)' }}>
+                <td colSpan="7" className="text-center" style={{ padding: '2rem', color: 'var(--text-secondary)' }}>
                   No employees found in directory.
                 </td>
               </tr>

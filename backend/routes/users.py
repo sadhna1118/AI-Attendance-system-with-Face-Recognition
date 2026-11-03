@@ -53,6 +53,43 @@ async def register_face(
     
     return current_user
 
+@router.delete("/me/face", response_model=schemas.UserResponse)
+def delete_current_user_face(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """
+    Remove the registered face encoding for the currently logged in user.
+    """
+    if not current_user.face_encoding:
+        raise HTTPException(status_code=400, detail="No registered face found for this user.")
+
+    current_user.face_encoding = None
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@router.delete("/{user_id}/face", response_model=schemas.UserResponse)
+def delete_employee_face(
+    user_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """
+    Admin endpoint to reset an employee's registered face.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can reset employee face data")
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.face_encoding = None
+    db.commit()
+    db.refresh(user)
+    return user
+
 @router.get("/", response_model=List[schemas.UserResponse])
 def get_users(
     skip: int = 0, 
