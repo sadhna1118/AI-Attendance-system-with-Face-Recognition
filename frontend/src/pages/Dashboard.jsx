@@ -1,36 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import api from '../api/axios';
 import { Download, Users, CheckCircle, Clock, BarChart3, Trash2, ShieldAlert, MonitorPlay } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { useMemo } from 'react';
 import { toast } from 'react-toastify';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [attendance, setAttendance] = useState([]);
 
-  useEffect(() => {
-    fetchUser();
-    fetchAttendance();
-  }, []);
-
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const res = await api.get('/users/me');
       setUser(res.data);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch user info', err);
     }
-  };
+  }, []);
 
-  const fetchAttendance = async () => {
+  const fetchAttendance = useCallback(async () => {
     try {
       const res = await api.get('/attendance/');
       setAttendance(res.data);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch attendance records', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchUser();
+    fetchAttendance();
+  }, [fetchUser, fetchAttendance]);
 
   const handleExport = async () => {
     try {
@@ -44,6 +43,7 @@ export default function Dashboard() {
       link.parentNode.removeChild(link);
     } catch (err) {
       console.error('Export failed', err);
+      toast.error('Failed to export attendance');
     }
   };
 
@@ -51,7 +51,7 @@ export default function Dashboard() {
     if (window.confirm("Are you sure you want to delete this record?")) {
       try {
         await api.delete(`/attendance/${id}`);
-        setAttendance(attendance.filter(record => record.id !== id));
+        setAttendance(prev => prev.filter(record => record.id !== id));
         toast.success('Record deleted successfully');
       } catch (err) {
         toast.error(err.response?.data?.detail || 'Failed to delete record');
@@ -73,7 +73,7 @@ export default function Dashboard() {
     const todayRecords = attendance.filter(r => new Date(r.timestamp).toDateString() === todayStr);
     
     // Unique users present today
-    const presentUsers = new Set(todayRecords.map(r => r.username)).size;
+    const presentUsers = new Set(todayRecords.filter(r => r.status?.includes('Present')).map(r => r.username)).size;
     const lateUsers = new Set(todayRecords.filter(r => r.is_late).map(r => r.username)).size;
 
     return {
@@ -219,8 +219,8 @@ export default function Dashboard() {
                       padding: '4px 12px', 
                       borderRadius: '20px', 
                       fontSize: '0.85rem',
-                      backgroundColor: record.status.includes('Present') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                      color: record.status.includes('Present') ? 'var(--success)' : 'var(--error)'
+                      backgroundColor: record.status?.includes('Present') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                      color: record.status?.includes('Present') ? 'var(--success)' : 'var(--error)'
                     }}>
                       {record.status}
                     </span>

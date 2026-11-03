@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List
@@ -19,6 +19,9 @@ def request_leave(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
+    if leave.start_date > leave.end_date:
+        raise HTTPException(status_code=400, detail="Start date cannot be after end date.")
+
     new_leave = models.LeaveRequest(
         user_id=current_user.id,
         start_date=leave.start_date,
@@ -68,16 +71,20 @@ def update_leave_status(
     if not leave:
         raise HTTPException(status_code=404, detail="Leave request not found")
         
-    if status not in ["Approved", "Rejected"]:
-        raise HTTPException(status_code=400, detail="Invalid status")
+    normalized_status = status.capitalize()
+    if normalized_status not in ["Approved", "Rejected"]:
+        raise HTTPException(status_code=400, detail="Invalid status. Must be 'Approved' or 'Rejected'")
         
-    leave.status = status
+    leave.status = normalized_status
     db.commit()
     
-    return {"detail": f"Leave {status.lower()} successfully"}
+    return {"detail": f"Leave {normalized_status.lower()} successfully"}
 
 @router.get("/export")
-def export_leaves(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+def export_leaves(
+    db: Session = Depends(database.get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can export leaves")
         
@@ -105,5 +112,8 @@ def export_leaves(db: Session = Depends(database.get_db), current_user: models.U
     headers_dict = {
         'Content-Disposition': f'attachment; filename="{filename}"'
     }
-    from fastapi import Response
-    return Response(content=stream.read(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers_dict)
+    return Response(
+        content=stream.read(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers=headers_dict
+    )

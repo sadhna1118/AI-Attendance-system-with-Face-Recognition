@@ -2,14 +2,13 @@ fastapi
 uvicorn
 sqlalchemy
 psycopg2-binary
-
 pydantic
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt
 python-multipart
 openpyxl
 face-recognition
 opencv-python-headless
 numpy
 mediapipe
-

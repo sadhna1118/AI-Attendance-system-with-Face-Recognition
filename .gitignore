@@ -1,8 +1,35 @@
+# Python
 venv/
+.venv/
+env/
 __pycache__/
-*.pyc
+*/__pycache__/
+*/*/__pycache__/
+*.py[cod]
+*$py.class
+*.db
+*.sqlite
+*.sqlite3
 attendance.db
+backend/attendance.db
+
+# Node & Frontend
 node_modules/
-.env
+frontend/node_modules/
 dist/
+frontend/dist/
+dist-ssr/
+*.local
+
+# Environment & Secret variables
+.env
+*.env
+!.env.example
+frontend/.env
+
+# Logs & OS
+*.log
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/

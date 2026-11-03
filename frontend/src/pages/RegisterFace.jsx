@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { Camera, UploadCloud } from 'lucide-react';
 import api from '../api/axios';
 import { useNavigate } from 'react-router-dom';
@@ -6,36 +6,42 @@ import { useNavigate } from 'react-router-dom';
 export default function RegisterFace() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [stream, setStream] = useState(null);
+  const streamRef = useRef(null);
+  const [hasStream, setHasStream] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    startCamera();
-    return () => stopCamera();
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setHasStream(false);
   }, []);
 
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setStream(mediaStream);
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: { ideal: 640 }, height: { ideal: 480 } } 
+      });
+      streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
-    } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to access camera. Please allow permissions.' });
+      setHasStream(true);
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to access camera. Please allow camera permissions.' });
     }
-  };
+  }, []);
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-  };
+  useEffect(() => {
+    startCamera();
+    return () => stopCamera();
+  }, [startCamera, stopCamera]);
 
   const captureAndRegister = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current || loading) return;
     
     setLoading(true);
     setMessage({ type: '', text: '' });
@@ -44,18 +50,23 @@ export default function RegisterFace() {
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
 
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     canvas.toBlob(async (blob) => {
+      if (!blob) {
+        setLoading(false);
+        setMessage({ type: 'error', text: 'Failed to capture frame.' });
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', blob, 'face.jpg');
 
       try {
         await api.post('/users/register-face', formData);
-        setMessage({ type: 'success', text: 'Face registered successfully!' });
+        setMessage({ type: 'success', text: 'Face enrolled successfully! Redirecting...' });
         setTimeout(() => navigate('/dashboard'), 2000);
       } catch (err) {
         setMessage({ type: 'error', text: err.response?.data?.detail || 'Failed to register face.' });
@@ -99,7 +110,7 @@ export default function RegisterFace() {
 
         <button 
           onClick={captureAndRegister} 
-          disabled={loading || !stream}
+          disabled={loading || !hasStream}
           className="btn btn-primary mt-6 flex items-center justify-center gap-4" 
           style={{ width: '100%' }}
         >

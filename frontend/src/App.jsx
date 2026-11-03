@@ -22,13 +22,14 @@ function App() {
           <div className="container">
             <Routes>
               <Route path="/" element={token ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
-              <Route path="/login" element={<Login />} />
+              <Route path="/login" element={!token ? <Login /> : <Navigate to="/dashboard" />} />
               <Route path="/dashboard" element={token ? <Dashboard /> : <Navigate to="/login" />} />
               <Route path="/leaves" element={token ? <Leaves /> : <Navigate to="/login" />} />
               <Route path="/profile" element={token ? <Profile /> : <Navigate to="/login" />} />
               <Route path="/directory" element={token ? <Directory /> : <Navigate to="/login" />} />
               <Route path="/register-face" element={token ? <RegisterFace /> : <Navigate to="/login" />} />
               <Route path="/live-attendance" element={token ? <LiveAttendance /> : <Navigate to="/login" />} />
+              <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </div>
         </main>

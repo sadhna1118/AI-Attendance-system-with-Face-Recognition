@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
-import { UserCircle2, KeyRound } from 'lucide-react';
+import { UserCircle2, KeyRound, Mail } from 'lucide-react';
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
@@ -9,41 +8,63 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+    setLoading(true);
     
     try {
       if (isLogin) {
         const formData = new FormData();
-        formData.append('username', username);
+        formData.append('username', username.trim());
         formData.append('password', password);
         
         const response = await api.post('/auth/login', formData);
         localStorage.setItem('token', response.data.access_token);
         window.location.href = '/dashboard';
       } else {
-        await api.post('/auth/register', { username, email, password });
+        await api.post('/auth/register', {
+          username: username.trim(),
+          email: email.trim(),
+          password
+        });
         setIsLogin(true);
-        setError('Registration successful! Please login.');
+        setPassword('');
+        setSuccess('Account created successfully! Please sign in with your credentials.');
       }
     } catch (err) {
       setError(err.response?.data?.detail || 'An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleToggleMode = () => {
+    setIsLogin(prev => !prev);
+    setError('');
+    setSuccess('');
   };
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem' }}>
+      <div className="glass-panel" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem' }}>
         <h2 className="text-2xl font-bold text-center mb-4 text-primary">
           {isLogin ? 'Welcome Back' : 'Create Account'}
         </h2>
         
         {error && (
-          <div style={{ padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.2)', border: '1px solid var(--error)', borderRadius: '8px', color: '#fca5a5', marginBottom: '1rem' }}>
+          <div style={{ padding: '0.875rem', backgroundColor: 'rgba(239, 68, 68, 0.2)', border: '1px solid var(--error)', borderRadius: '8px', color: '#fca5a5', marginBottom: '1rem', fontSize: '0.9rem' }}>
             {error}
+          </div>
+        )}
+
+        {success && (
+          <div style={{ padding: '0.875rem', backgroundColor: 'rgba(16, 185, 129, 0.2)', border: '1px solid var(--success)', borderRadius: '8px', color: '#6ee7b7', marginBottom: '1rem', fontSize: '0.9rem' }}>
+            {success}
           </div>
         )}
 
@@ -59,6 +80,7 @@ export default function Login() {
                 value={username} 
                 onChange={e => setUsername(e.target.value)} 
                 required 
+                autoComplete="username"
               />
             </div>
           </div>
@@ -66,13 +88,18 @@ export default function Login() {
           {!isLogin && (
             <div>
               <label className="form-label">Email</label>
-              <input 
-                type="email" 
-                className="input-field" 
-                value={email} 
-                onChange={e => setEmail(e.target.value)} 
-                required 
-              />
+              <div style={{ position: 'relative' }}>
+                <Mail size={20} style={{ position: 'absolute', top: '14px', left: '12px', color: 'var(--text-secondary)' }} />
+                <input 
+                  type="email" 
+                  className="input-field" 
+                  style={{ paddingLeft: '40px' }}
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                  required 
+                  autoComplete="email"
+                />
+              </div>
             </div>
           )}
 
@@ -87,12 +114,18 @@ export default function Login() {
                 value={password} 
                 onChange={e => setPassword(e.target.value)} 
                 required 
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
               />
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
-            {isLogin ? 'Sign In' : 'Sign Up'}
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            style={{ width: '100%', marginTop: '1rem' }}
+            disabled={loading}
+          >
+            {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Sign Up'}
           </button>
         </form>
 
@@ -100,7 +133,7 @@ export default function Login() {
           <button 
             type="button" 
             style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline' }}
-            onClick={() => { setIsLogin(!isLogin); setError(''); }}
+            onClick={handleToggleMode}
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </button>

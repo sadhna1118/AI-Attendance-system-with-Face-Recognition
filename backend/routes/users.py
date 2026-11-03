@@ -39,10 +39,13 @@ async def register_face(
     Register a face for the currently logged in user.
     """
     contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty image file received.")
+
     encoding_json = face_engine.get_face_encoding(contents)
     
     if not encoding_json:
-        raise HTTPException(status_code=400, detail="Could not detect exactly one face in the image.")
+        raise HTTPException(status_code=400, detail="Could not detect exactly one face in the image. Please try again with clear lighting.")
     
     current_user.face_encoding = encoding_json
     db.commit()
@@ -51,17 +54,29 @@ async def register_face(
     return current_user
 
 @router.get("/", response_model=List[schemas.UserResponse])
-def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+def get_users(
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(database.get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can view all users")
-    users = db.query(models.User).offset(skip).limit(limit).all()
+    users = db.query(models.User).order_by(models.User.id.asc()).offset(skip).limit(limit).all()
     return users
 
 @router.delete("/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+def delete_user(
+    user_id: int, 
+    db: Session = Depends(database.get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can delete users")
         
+    if current_user.id == user_id:
+        raise HTTPException(status_code=400, detail="Admins cannot delete their own account.")
+
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

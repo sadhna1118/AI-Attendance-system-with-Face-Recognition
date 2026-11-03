@@ -1,9 +1,8 @@
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Camera, UserPlus, LogOut, CalendarCheck, User, Moon, Sun, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export default function Sidebar() {
-  const navigate = useNavigate();
   const location = useLocation();
 
   const handleLogout = () => {
@@ -11,7 +10,7 @@ export default function Sidebar() {
     window.location.href = '/login';
   };
 
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -19,7 +18,7 @@ export default function Sidebar() {
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
   const navItems = [

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
-import { CalendarCheck, CalendarRange, CheckCircle, XCircle, Download } from 'lucide-react';
+import { CalendarCheck, CalendarRange, Download } from 'lucide-react';
 
 export default function Leaves() {
   const [user, setUser] = useState(null);
@@ -9,37 +9,44 @@ export default function Leaves() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchUser();
-    fetchLeaves();
-  }, []);
-
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const res = await api.get('/users/me');
       setUser(res.data);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch user', err);
     }
-  };
+  }, []);
 
-  const fetchLeaves = async () => {
+  const fetchLeaves = useCallback(async () => {
     try {
       const res = await api.get('/leaves/');
       setLeaves(res.data);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch leaves', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchUser();
+    fetchLeaves();
+  }, [fetchUser, fetchLeaves]);
 
   const handleRequestLeave = async (e) => {
     e.preventDefault();
+    if (new Date(startDate) > new Date(endDate)) {
+      toast.error('Start date cannot be after end date');
+      return;
+    }
+
+    setSubmitting(true);
     try {
       const payload = {
-        start_date: new Date(startDate).toISOString(),
-        end_date: new Date(endDate).toISOString(),
-        reason
+        start_date: new Date(`${startDate}T00:00:00`).toISOString(),
+        end_date: new Date(`${endDate}T23:59:59`).toISOString(),
+        reason: reason.trim()
       };
       await api.post('/leaves/', payload);
       toast.success('Leave requested successfully!');
@@ -49,6 +56,8 @@ export default function Leaves() {
       fetchLeaves();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to request leave');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -72,7 +81,7 @@ export default function Leaves() {
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
-    } catch (err) {
+    } catch {
       toast.error('Failed to export leaves');
     }
   };
@@ -114,10 +123,16 @@ export default function Leaves() {
               onChange={e => setReason(e.target.value)} 
               required 
               rows="3"
+              placeholder="Provide reason for leave request"
             />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ gridColumn: 'span 2' }}>
-            Submit Request
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            style={{ gridColumn: 'span 2' }}
+            disabled={submitting}
+          >
+            {submitting ? 'Submitting...' : 'Submit Request'}
           </button>
         </form>
       </div>
@@ -150,32 +165,48 @@ export default function Leaves() {
             <tbody>
               {leaves.map(leave => (
                 <tr key={leave.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  {user?.role === 'admin' && <td style={{ padding: '1rem', fontWeight: 'bold' }}>{leave.username}</td>}
-                  <td style={{ padding: '1rem' }}>{new Date(leave.start_date).toLocaleDateString()}</td>
-                  <td style={{ padding: '1rem' }}>{new Date(leave.end_date).toLocaleDateString()}</td>
-                  <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{leave.reason}</td>
+                  {user?.role === 'admin' && (
+                    <td style={{ padding: '1rem', fontWeight: '500' }}>{leave.username}</td>
+                  )}
+                  <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
+                    {new Date(leave.start_date).toLocaleDateString()}
+                  </td>
+                  <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
+                    {new Date(leave.end_date).toLocaleDateString()}
+                  </td>
+                  <td style={{ padding: '1rem' }}>{leave.reason}</td>
                   <td style={{ padding: '1rem' }}>
                     <span style={{ 
                       padding: '4px 12px', 
                       borderRadius: '20px', 
                       fontSize: '0.85rem',
                       backgroundColor: leave.status === 'Approved' ? 'rgba(16, 185, 129, 0.2)' : leave.status === 'Rejected' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                      color: leave.status === 'Approved' ? 'var(--success)' : leave.status === 'Rejected' ? 'var(--error)' : '#fbbf24'
+                      color: leave.status === 'Approved' ? 'var(--success)' : leave.status === 'Rejected' ? 'var(--error)' : '#fbbf24',
+                      fontWeight: 'bold'
                     }}>
                       {leave.status}
                     </span>
                   </td>
                   {user?.role === 'admin' && (
-                    <td style={{ padding: '1rem', textAlign: 'center', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                      {leave.status === 'Pending' && (
-                        <>
-                          <button onClick={() => handleStatusChange(leave.id, 'Approved')} style={{ background: 'none', border: 'none', color: 'var(--success)', cursor: 'pointer' }} title="Approve">
-                            <CheckCircle size={20} />
+                    <td style={{ padding: '1rem', textAlign: 'center' }}>
+                      {leave.status === 'Pending' ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <button 
+                            onClick={() => handleStatusChange(leave.id, 'Approved')} 
+                            className="btn btn-primary" 
+                            style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                          >
+                            Approve
                           </button>
-                          <button onClick={() => handleStatusChange(leave.id, 'Rejected')} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer' }} title="Reject">
-                            <XCircle size={20} />
+                          <button 
+                            onClick={() => handleStatusChange(leave.id, 'Rejected')} 
+                            style={{ padding: '4px 8px', fontSize: '0.8rem', background: 'rgba(239, 68, 68, 0.2)', color: 'var(--error)', border: '1px solid var(--error)', borderRadius: '6px', cursor: 'pointer' }}
+                          >
+                            Reject
                           </button>
-                        </>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Completed</span>
                       )}
                     </td>
                   )}
@@ -183,7 +214,7 @@ export default function Leaves() {
               ))}
               {leaves.length === 0 && (
                 <tr>
-                  <td colSpan={user?.role === 'admin' ? "6" : "4"} className="text-center" style={{ padding: '2rem', color: 'var(--text-secondary)' }}>
+                  <td colSpan={user?.role === 'admin' ? "6" : "5"} className="text-center" style={{ padding: '2rem', color: 'var(--text-secondary)' }}>
                     No leave requests found.
                   </td>
                 </tr>

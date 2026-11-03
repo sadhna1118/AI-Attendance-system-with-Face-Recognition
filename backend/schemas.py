@@ -1,8 +1,26 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional, Any
 from datetime import datetime
 
-class UserBase(BaseModel):
+try:
+    from pydantic import ConfigDict
+    HAS_PYDANTIC_V2 = True
+except ImportError:
+    HAS_PYDANTIC_V2 = False
+
+if HAS_PYDANTIC_V2:
+    class CompatibleBaseModel(BaseModel):
+        model_config = ConfigDict(from_attributes=True)
+
+        @classmethod
+        def from_orm(cls, obj: Any):
+            return cls.model_validate(obj, from_attributes=True)
+else:
+    class CompatibleBaseModel(BaseModel):
+        class Config:
+            orm_mode = True
+
+class UserBase(CompatibleBaseModel):
     username: str
     email: EmailStr
     role: str = "employee"
@@ -10,7 +28,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
-class UserUpdate(BaseModel):
+class UserUpdate(CompatibleBaseModel):
     department: Optional[str] = None
     designation: Optional[str] = None
 
@@ -22,11 +40,7 @@ class UserResponse(UserBase):
     created_at: datetime
     has_face_encoding: bool
 
-    class Config:
-        orm_mode = True
-        from_attributes = True
-
-class AttendanceRecordResponse(BaseModel):
+class AttendanceRecordResponse(CompatibleBaseModel):
     id: int
     user_id: int
     timestamp: datetime
@@ -39,15 +53,12 @@ class AttendanceRecordResponse(BaseModel):
     ip_address: Optional[str] = None
     username: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
-class LeaveRequestCreate(BaseModel):
+class LeaveRequestCreate(CompatibleBaseModel):
     start_date: datetime
     end_date: datetime
     reason: str
 
-class LeaveRequestResponse(BaseModel):
+class LeaveRequestResponse(CompatibleBaseModel):
     id: int
     user_id: int
     username: Optional[str] = None
@@ -57,12 +68,9 @@ class LeaveRequestResponse(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
-class Token(BaseModel):
+class Token(CompatibleBaseModel):
     access_token: str
     token_type: str
 
-class TokenData(BaseModel):
+class TokenData(CompatibleBaseModel):
     username: Optional[str] = None

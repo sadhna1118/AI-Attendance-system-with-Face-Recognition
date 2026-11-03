@@ -10,12 +10,12 @@ except (ImportError, ValueError):
 # Create database tables
 models.Base.metadata.create_all(bind=database.engine)
 
-app = FastAPI(title="AI Attendance API")
+app = FastAPI(title="AI Attendance API", version="1.0.0")
 
 # Configure CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For production, restrict to frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,4 +28,12 @@ app.include_router(leaves.router)
 
 @app.get("/")
 def root():
-    return {"message": "Welcome to the AI Attendance System API"}
+    return {
+        "message": "Welcome to the AI Attendance System API",
+        "status": "online",
+        "version": "1.0.0"
+    }
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}

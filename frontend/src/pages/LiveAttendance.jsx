@@ -1,78 +1,60 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { ScanFace } from 'lucide-react';
 import api from '../api/axios';
 
 export default function LiveAttendance() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [stream, setStream] = useState(null);
+  const streamRef = useRef(null);
+  const isProcessingRef = useRef(false);
+  const [hasCamera, setHasCamera] = useState(false);
   const [status, setStatus] = useState({ type: 'idle', text: 'Looking for a face...' });
-  const [isProcessing, setIsProcessing] = useState(false);
   const [locationCoords, setLocationCoords] = useState(null);
 
-  useEffect(() => {
-    startCamera();
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setLocationCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => console.warn("Geolocation denied or error", err)
-      );
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
-    return () => stopCamera();
+    setHasCamera(false);
   }, []);
 
-  // Set up an interval to capture frames every 2 seconds for continuous attendance check
-  useEffect(() => {
-    if (!stream) return;
-    
-    const interval = setInterval(() => {
-      if (!isProcessing && status.type !== 'success') {
-        captureAndCheckIn();
-      }
-    }, 2000);
-    
-    return () => clearInterval(interval);
-  }, [stream, isProcessing, status]);
-
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setStream(mediaStream);
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } } 
+      });
+      streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
-    } catch (err) {
-      setStatus({ type: 'error', text: 'Camera access denied.' });
+      setHasCamera(true);
+    } catch {
+      setStatus({ type: 'error', text: 'Camera access denied. Please grant camera permission.' });
     }
-  };
+  }, []);
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-  };
-
-  const captureAndCheckIn = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
+  const captureAndCheckIn = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current || isProcessingRef.current) return;
     
-    setIsProcessing(true);
+    const video = videoRef.current;
+    if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+    isProcessingRef.current = true;
     setStatus({ type: 'idle', text: 'Analyzing...' });
 
-    const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
-
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    
-    if(canvas.width === 0) {
-      setIsProcessing(false);
-      return;
-    }
-
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     canvas.toBlob(async (blob) => {
+      if (!blob) {
+        isProcessingRef.current = false;
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', blob, 'frame.jpg');
       if (locationCoords) {
@@ -82,19 +64,54 @@ export default function LiveAttendance() {
 
       try {
         const res = await api.post('/attendance/check-in', formData);
-        setStatus({ type: 'success', text: `Welcome, ${res.data.username}! ${res.data.type} recorded at ${new Date(res.data.timestamp).toLocaleTimeString()}` });
+        setStatus({ 
+          type: 'success', 
+          text: `Welcome, ${res.data.username}! ${res.data.type} recorded at ${new Date(res.data.timestamp).toLocaleTimeString()}` 
+        });
         
-        // Reset after 5 seconds to allow the next person to scan
-        setTimeout(() => setStatus({ type: 'idle', text: 'Looking for a face...' }), 5000);
+        // Cooldown for 4 seconds after successful check-in
+        setTimeout(() => {
+          setStatus({ type: 'idle', text: 'Looking for a face...' });
+          isProcessingRef.current = false;
+        }, 4000);
       } catch (err) {
-        // Only show error briefly, then resume scanning
-        setStatus({ type: 'error', text: err.response?.data?.detail || 'Recognition failed.' });
-        setTimeout(() => setStatus({ type: 'idle', text: 'Looking for a face...' }), 2000);
-      } finally {
-        setIsProcessing(false);
+        const errorMsg = err.response?.data?.detail || 'Recognition failed.';
+        setStatus({ type: 'error', text: errorMsg });
+        
+        // Cooldown for 2.5 seconds on error before retrying
+        setTimeout(() => {
+          setStatus({ type: 'idle', text: 'Looking for a face...' });
+          isProcessingRef.current = false;
+        }, 2500);
       }
-    }, 'image/jpeg', 0.8);
-  };
+    }, 'image/jpeg', 0.85);
+  }, [locationCoords]);
+
+  useEffect(() => {
+    startCamera();
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setLocationCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => console.warn("Geolocation denied or unavailable", err)
+      );
+    }
+    return () => {
+      stopCamera();
+    };
+  }, [startCamera, stopCamera]);
+
+  // Periodic attendance capture loop
+  useEffect(() => {
+    if (!hasCamera) return;
+
+    const interval = setInterval(() => {
+      if (!isProcessingRef.current) {
+        captureAndCheckIn();
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [hasCamera, captureAndCheckIn]);
 
   return (
     <div className="flex justify-center items-center" style={{ minHeight: '70vh' }}>
@@ -122,7 +139,6 @@ export default function LiveAttendance() {
             transition: 'border 0.3s ease',
             pointerEvents: 'none'
           }}>
-            {/* Simple scanning animation line if analyzing */}
             {status.text === 'Analyzing...' && (
               <div style={{
                 position: 'absolute',

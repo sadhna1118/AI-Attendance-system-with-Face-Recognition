@@ -1,32 +1,39 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
-import { Users, Trash2, Building, Briefcase } from 'lucide-react';
+import { Users, Trash2, Building, Briefcase, ShieldAlert } from 'lucide-react';
 
 export default function Directory() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
+      setLoading(true);
       const res = await api.get('/users/');
       setUsers(res.data);
+      setForbidden(false);
     } catch (err) {
-      toast.error('Failed to load users');
+      if (err.response?.status === 403) {
+        setForbidden(true);
+      } else {
+        toast.error('Failed to load user directory');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this user permanently?")) {
       try {
         await api.delete(`/users/${id}`);
-        setUsers(users.filter(u => u.id !== id));
+        setUsers(prev => prev.filter(u => u.id !== id));
         toast.success('User deleted successfully');
       } catch (err) {
         toast.error(err.response?.data?.detail || 'Failed to delete user');
@@ -35,6 +42,16 @@ export default function Directory() {
   };
 
   if (loading) return <div className="p-6">Loading directory...</div>;
+
+  if (forbidden) {
+    return (
+      <div className="glass-panel p-6 text-center" style={{ maxWidth: '600px', margin: '2rem auto' }}>
+        <ShieldAlert size={48} color="var(--error)" style={{ margin: '0 auto 1rem' }} />
+        <h2 className="text-xl font-bold mb-2">Access Restricted</h2>
+        <p className="text-secondary">Only administrators have permission to view and manage the employee directory.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="glass-panel p-6">
@@ -99,6 +116,13 @@ export default function Directory() {
                 </td>
               </tr>
             ))}
+            {users.length === 0 && (
+              <tr>
+                <td colSpan="6" className="text-center" style={{ padding: '2rem', color: 'var(--text-secondary)' }}>
+                  No employees found in directory.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
