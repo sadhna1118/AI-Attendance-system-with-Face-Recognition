@@ -1,11 +1,20 @@
+import sys
+import os
+
+# Ensure current directory is in python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 try:
-    from . import database, models
-    from .routes import auth, attendance, users, leaves
-except (ImportError, ValueError):
     import database, models
     from routes import auth, attendance, users, leaves
+except ImportError:
+    from . import database, models
+    from .routes import auth, attendance, users, leaves
 
 app = FastAPI(title="AI Attendance API", version="1.0.0")
 
