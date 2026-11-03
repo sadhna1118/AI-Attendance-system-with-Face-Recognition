@@ -7,10 +7,15 @@ except (ImportError, ValueError):
     import database, models
     from routes import auth, attendance, users, leaves
 
-# Create database tables
-models.Base.metadata.create_all(bind=database.engine)
-
 app = FastAPI(title="AI Attendance API", version="1.0.0")
+
+@app.on_event("startup")
+def startup_event():
+    try:
+        models.Base.metadata.create_all(bind=database.engine)
+        print("Database tables verified/created successfully.")
+    except Exception as e:
+        print(f"Database connection warning on startup: {e}")
 
 # Configure CORS for frontend
 app.add_middleware(

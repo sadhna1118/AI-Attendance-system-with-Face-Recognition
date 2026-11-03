@@ -21,6 +21,7 @@ services:
     depends_on:
       - db
     environment:
+      - PORT=8000
       - DATABASE_URL=postgresql://admin:password@db/attendance
       - SECRET_KEY=supersecretkey
     volumes:
